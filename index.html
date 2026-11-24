@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lift Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one phone-width column. Four tabs on top (Log, Workouts, Exercises, History); each tab is a stack of cards. */
+:root {
+  --bg: #eceef4;
+  --surface: #ffffff;
+  --ink: #141824;
+  --muted: #5a6377;
+  --line: #d2d7e3;
+  --accent: #3442c4;
+  --accent-ink: #ffffff;
+  --good: #1b7a43;
+  --field: #f5f6fa;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f1218;
+    --surface: #181c26;
+    --ink: #e9ecf4;
+    --muted: #9aa3b6;
+    --line: #2b3140;
+    --accent: #8d98ff;
+    --accent-ink: #0f1218;
+    --good: #55c988;
+    --field: #11151d;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1218;
+  --surface: #181c26;
+  --ink: #e9ecf4;
+  --muted: #9aa3b6;
+  --line: #2b3140;
+  --accent: #8d98ff;
+  --accent-ink: #0f1218;
+  --good: #55c988;
+  --field: #11151d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+}
+main { max-width: 520px; margin: 0 auto; padding: 16px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; letter-spacing: 0.01em; }
+h1 { font-size: 32px; line-height: 1; text-transform: uppercase; }
+h2 { font-size: 22px; text-transform: uppercase; }
+h3 { font-size: 22px; line-height: 1.1; }
+p { margin: 0; }
+.muted { color: var(--muted); font-size: 14px; }
+
+nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; position: sticky; top: 8px; z-index: 2; }
+nav button { min-height: 40px; border: 0; background: transparent; color: var(--muted); font-size: 14px; padding: 0 4px; border-radius: 8px; }
+nav button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+#view { display: flex; flex-direction: column; gap: 12px; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.stat b { display: block; font-family: var(--font-display); font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
+
+.notice { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chips button { min-height: 38px; border-radius: 999px; font-size: 15px; }
+.chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.last { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.sets { display: flex; flex-direction: column; gap: 6px; }
+.set { display: grid; grid-template-columns: 28px 1fr 1fr 22px; gap: 8px; align-items: center; }
+.set .n { font-family: var(--font-display); font-size: 18px; color: var(--muted); text-align: center; }
+.field { position: relative; }
+.field label { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--muted); pointer-events: none; }
+input[type="text"], select {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  font: 500 17px var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.field input { padding-right: 40px; }
+input::placeholder { color: var(--muted); opacity: 0.6; }
+input:focus-visible, select:focus-visible, button:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); justify-self: center; }
+.set.done .dot { background: var(--good); border-color: var(--good); }
+
+button {
+  font: 600 16px var(--font-body);
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  min-height: 44px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; min-height: 52px; font-size: 18px; }
+button.small { min-height: 34px; font-size: 13px; padding: 0 10px; color: var(--muted); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > select, .row > input { flex: 1 1 160px; width: auto; }
+.row.tight { gap: 6px; }
+.stack { display: flex; flex-direction: column; gap: 6px; }
+.stack > label { font-size: 13px; color: var(--muted); }
+.msg { font-size: 14px; color: var(--good); min-height: 20px; }
+.msg.err { color: var(--ink); font-weight: 600; }
+.progress { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.edrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.edrow:first-child { border-top: 0; }
+.edrow .nm { font-weight: 600; overflow-wrap: anywhere; }
+.step { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.step button { min-height: 34px; width: 34px; padding: 0; }
+.step b { min-width: 52px; text-align: center; font-weight: 600; font-size: 14px; }
+.edrow .tools { grid-column: 1 / -1; display: flex; gap: 6px; }
+
+.lines { list-style: none; margin: 0; padding: 0; font-size: 14px; display: flex; flex-direction: column; gap: 3px; font-variant-numeric: tabular-nums; }
+.lines li { display: flex; justify-content: space-between; gap: 12px; }
+.lines li span:first-child { color: var(--muted); }
+.lines li span:last-child { text-align: right; }
+
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+summary { font-weight: 600; cursor: pointer; }
+summary small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+details .inner { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+textarea { width: 100%; min-height: 90px; font: 13px ui-monospace, Menlo, Consolas, monospace; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+@media (prefers-reduced-motion: no-preference) {
+  .dot { transition: background-color 0.15s, border-color 0.15s; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Lift Log</h1>
+  <nav aria-label="Sections">
+    <button type="button" data-act="tab" data-arg="log">Log</button>
+    <button type="button" data-act="tab" data-arg="workouts">Workouts</button>
+    <button type="button" data-act="tab" data-arg="exercises">Exercises</button>
+    <button type="button" data-act="tab" data-arg="history">History</button>
+  </nav>
+  <div id="view"></div>
+</main>
+
+<script>
+(function () {
+  const KEY = 'six-lift-log-v2';
+  const SEED = [
+    ['squat', 'Squat', 3], ['bench', 'Bench press', 3], ['pull', 'Pull-ups or lat pulldown', 3],
+    ['rdl', 'Romanian deadlift', 2], ['ohp', 'Overhead press', 2], ['leg', 'Leg raise', 2]
+  ];
+  const TABS = ['log', 'workouts', 'exercises', 'history'];
+  const ID_RE = /^[\w-]{1,40}$/;
+  const FREE = '_free'; // logging single exercises with no workout
+
+  let state = seed();
+  let edit = null;       // workout being created or edited, not saved until Save
+  let storageOk = true;
+
+  function seed() {
+    return { exercises: [], workouts: [], sessions: [], drafts: {}, current: FREE, tab: 'log' };
+  }
+
+  function uid() { return 'x' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+
+  function num(v) {
+    if (v === '' || v === null || v === undefined) return null;
+    const n = Number(String(v).replace(',', '.'));
+    return isFinite(n) && n >= 0 && n < 10000 ? n : null;
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function cleanName(v) { return typeof v === 'string' ? v.trim().slice(0, 60) : ''; }
+
+  function cleanSets(arr) {
+    const out = [];
+    (Array.isArray(arr) ? arr : []).slice(0, 12).forEach(r => {
+      if (!r) return;
+      const reps = num(r.reps);
+      if (!reps) return;
+      out.push({ kg: num(r.kg), reps: Math.round(reps) });
+    });
+    return out;
+  }
+
+  function convertV1(list) {
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach(s => {
+      if (!s || !s.ex || typeof s.ex !== 'object') return;
+      const t = new Date(s.date).getTime();
+      if (!isFinite(t)) return;
+      const items = [];
+      SEED.forEach(p => {
+        const sets = cleanSets(s.ex[p[0]]);
+        if (sets.length) items.push({ ex: p[0], name: p[1], sets: sets });
+      });
+      if (items.length) out.push({ date: new Date(t).toISOString(), workout: 'Full body', items: items });
+    });
+    return out;
+  }
+
+  function cleanState(d) {
+    const out = seed();
+    if (!d || typeof d !== 'object') return out;
+    if (Array.isArray(d.exercises)) {
+      const seen = {};
+      out.exercises = [];
+      d.exercises.forEach(e => {
+        if (!e || !ID_RE.test(String(e.id)) || seen[e.id]) return;
+        const name = cleanName(e.name);
+        if (!name) return;
+        seen[e.id] = 1;
+        out.exercises.push({ id: String(e.id), name: name });
+      });
+    }
+    const has = id => out.exercises.some(e => e.id === id);
+    if (Array.isArray(d.workouts)) {
+      out.workouts = [];
+      d.workouts.forEach(w => {
+        if (!w || !ID_RE.test(String(w.id))) return;
+        const name = cleanName(w.name);
+        if (!name) return;
+        const items = (Array.isArray(w.items) ? w.items : []).filter(it => it && has(it.ex)).map(it => ({
+          ex: it.ex, sets: Math.min(12, Math.max(1, Math.round(num(it.sets) || 1)))
+        }));
+        out.workouts.push({ id: String(w.id), name: name, items: items });
+      });
+    } else {
+      out.workouts.forEach(w => { w.items = w.items.filter(it => has(it.ex)); });
+    }
+    (Array.isArray(d.sessions) ? d.sessions : []).forEach(s => {
+      if (!s || !Array.isArray(s.items)) return;
+      const t = new Date(s.date).getTime();
+      if (!isFinite(t)) return;
+      const items = [];
+      s.items.forEach(it => {
+        if (!it) return;
+        const sets = cleanSets(it.sets);
+        const name = cleanName(it.name);
+        if (sets.length && name) items.push({ ex: ID_RE.test(String(it.ex)) ? String(it.ex) : '', name: name, sets: sets });
+      });
+      if (items.length) out.sessions.push({ date: new Date(t).toISOString(), workout: cleanName(s.workout), items: items });
+    });
+    out.sessions.sort((a, b) => (a.date < b.date ? -1 : 1));
+    if (d.drafts && typeof d.drafts === 'object') {
+      out.workouts.concat({ id: FREE }).forEach(w => {
+        const dr = d.drafts[w.id];
+        if (!dr || !Array.isArray(dr.items)) return;
+        const items = dr.items.filter(it => it && has(it.ex) && Array.isArray(it.rows)).map(it => ({
+          ex: it.ex,
+          rows: it.rows.slice(0, 12).map(r => ({ kg: String((r && r.kg) || '').slice(0, 8), reps: String((r && r.reps) || '').slice(0, 8) }))
+        })).filter(it => it.rows.length);
+        if (items.length) out.drafts[w.id] = { items: items };
+      });
+    }
+    out.current = out.workouts.some(w => w.id === d.current) ? d.current : FREE;
+    out.tab = TABS.indexOf(d.tab) >= 0 ? d.tab : 'log';
+    return out;
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) state = cleanState(JSON.parse(raw));
+    } catch (e) { /* keep the seed */ }
+    try { localStorage.setItem(KEY + '-probe', '1'); localStorage.removeItem(KEY + '-probe'); }
+    catch (e) { storageOk = false; }
+  }
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { storageOk = false; }
+  }
+
+  // Lookups
+  const exName = id => { const e = state.exercises.find(x => x.id === id); return e ? e.name : 'Removed exercise'; };
+  const workout = id => (id === FREE ? { id: FREE, name: '', items: [] } : (state.workouts.find(w => w.id === id) || null));
+
+  function historyFor(exId) {
+    const out = [];
+    for (let i = state.sessions.length - 1; i >= 0; i--) {
+      const s = state.sessions[i];
+      s.items.forEach(it => { if (it.ex === exId) out.push({ date: s.date, sets: it.sets }); });
+    }
+    return out;
+  }
+
+  function fmtKg(n) { return String(Math.round(n * 100) / 100); }
+
+  function fmtSets(sets) {
+    const sameKg = sets.every(s => s.kg === sets[0].kg);
+    const reps = sets.map(s => s.reps).join(', ');
+    if (sameKg) return sets[0].kg ? fmtKg(sets[0].kg) + ' kg x ' + reps : reps + ' reps';
+    return sets.map(s => (s.kg ? fmtKg(s.kg) + ' kg x ' : '') + s.reps).join(', ');
+  }
+
+  function dayStart(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
+
+  function ago(iso) {
+    const days = Math.round((dayStart(new Date()) - dayStart(new Date(iso))) / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return '1 day ago';
+    return days + ' days ago';
+  }
+
+  function fmtDate(iso) {
+    try { return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); }
+    catch (e) { return iso.slice(0, 10); }
+  }
+
+  function blankRows(exId, n) {
+    const h = historyFor(exId)[0];
+    const last = h ? h.sets : null;
+    const rows = [];
+    for (let i = 0; i < n; i++) {
+      const p = last && (last[i] || last[last.length - 1]);
+      rows.push({ kg: p && p.kg ? fmtKg(p.kg) : '', reps: '' });
+    }
+    return rows;
+  }
+
+  function draft() {
+    const w = workout(state.current);
+    if (!w) return null;
+    if (!state.drafts[w.id]) {
+      state.drafts[w.id] = { items: w.items.map(it => ({ ex: it.ex, rows: blankRows(it.ex, it.sets) })) };
+    }
+    return state.drafts[w.id];
+  }
+
+  // Views
+  function viewLog() {
+    const s = state.sessions;
+    const now = new Date();
+    const monday = dayStart(now) - ((now.getDay() + 6) % 7) * 86400000;
+    const wk = s.filter(x => new Date(x.date).getTime() >= monday).length;
+    let h = '<section class="stats" aria-label="Summary">' +
+      '<div class="stat"><b>' + s.length + '</b><span>workouts logged</span></div>' +
+      '<div class="stat"><b>' + wk + '</b><span>this week</span></div>' +
+      '<div class="stat"><b>' + (s.length ? esc(ago(s[s.length - 1].date)) : 'none') + '</b><span>last workout</span></div></section>';
+    if (!storageOk) h += '<div class="notice">This browser is blocking saved data, so the log resets when you close the page. Use Copy backup in History before leaving.</div>';
+    h += '<div class="chips" role="group" aria-label="Choose what to log">' + state.workouts.map(w =>
+      '<button type="button" data-act="pick" data-arg="' + w.id + '" aria-pressed="' + (w.id === state.current) + '">' + esc(w.name) + '</button>').join('') +
+      '<button type="button" data-act="pick" data-arg="' + FREE + '" aria-pressed="' + (state.current === FREE) + '">No workout</button>' +
+      '<button type="button" data-act="wnew">+ New workout</button></div>';
+    const d = draft();
+    if (!d.items.length) {
+      h += '<p class="muted">' + (state.current === FREE ? 'Log any exercises on their own. Add one below.' : 'This workout has no exercises. Add one below or edit it in Workouts.') + '</p>';
+    }
+    d.items.forEach((it, i) => {
+      const name = exName(it.ex);
+      const hist = historyFor(it.ex)[0];
+      let rows = '';
+      it.rows.forEach((r, j) => {
+        const prev = hist && (hist.sets[j] || hist.sets[hist.sets.length - 1]);
+        const kid = 'kg-' + i + '-' + j, rid = 'reps-' + i + '-' + j;
+        rows += '<div class="set' + (num(r.reps) ? ' done' : '') + '">' +
+          '<span class="n">' + (j + 1) + '</span>' +
+          '<div class="field"><input type="text" id="' + kid + '" data-i="' + i + '" data-j="' + j + '" data-k="kg" inputmode="decimal" autocomplete="off" value="' + esc(r.kg) + '" placeholder="0" aria-label="' + esc(name) + ' set ' + (j + 1) + ' weight in kg"><label for="' + kid + '">kg</label></div>' +
+          '<div class="field"><input type="text" id="' + rid + '" data-i="' + i + '" data-j="' + j + '" data-k="reps" inputmode="numeric" autocomplete="off" value="' + esc(r.reps) + '" placeholder="' + (prev ? prev.reps : '') + '" aria-label="' + esc(name) + ' set ' + (j + 1) + ' reps"><label for="' + rid + '">reps</label></div>' +
+          '<span class="dot" aria-hidden="true"></span></div>';
+      });
+      h += '<article class="card"><div class="head"><h3>' + esc(name) + '</h3><div class="row tight">' +
+        '<button type="button" class="small" data-act="rmset" data-arg="' + i + '" aria-label="Remove last set of ' + esc(name) + '">- Set</button>' +
+        '<button type="button" class="small" data-act="addset" data-arg="' + i + '" aria-label="Add a set to ' + esc(name) + '">+ Set</button>' +
+        '<button type="button" class="small" data-act="rmitem" data-arg="' + i + '" aria-label="Skip ' + esc(name) + ' today">Skip</button></div></div>' +
+        '<div class="last">' + (hist ? 'Last: ' + esc(fmtSets(hist.sets)) + ' (' + esc(ago(hist.date)) + ')' : 'Not logged yet') + '</div>' +
+        '<div class="sets">' + rows + '</div></article>';
+    });
+    const free = state.exercises.filter(e => !d.items.some(it => it.ex === e.id));
+    if (free.length) {
+      h += '<div class="row"><select id="add-ex" aria-label="Exercise to add to today">' + free.map(e => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('') +
+        '</select><button type="button" data-act="additem">Add to today</button></div>';
+    }
+    h += '<div class="row"><input type="text" id="log-new" autocomplete="off" maxlength="60" placeholder="New exercise name" aria-label="New exercise name"><button type="button" data-act="lcreate">Create and add</button></div>';
+    h += '<div class="progress" id="progress"></div><button type="button" class="primary" data-act="save">Save workout</button>';
+    return h;
+  }
+
+  function viewWorkouts() {
+    if (edit) return viewEditor();
+    let h = '<button type="button" class="primary" data-act="wnew">New workout</button>';
+    if (!state.workouts.length) h += '<p class="muted">No workouts yet.</p>';
+    state.workouts.forEach(w => {
+      h += '<article class="card"><div class="head"><h3>' + esc(w.name) + '</h3><div class="row tight">' +
+        '<button type="button" class="small" data-act="wedit" data-arg="' + w.id + '">Edit</button>' +
+        '<button type="button" class="small" data-act="wdel" data-arg="' + w.id + '">Delete</button></div></div>' +
+        (w.items.length ? '<ul class="lines">' + w.items.map(it => '<li><span>' + esc(exName(it.ex)) + '</span><span>' + it.sets + (it.sets === 1 ? ' set' : ' sets') + '</span></li>').join('') + '</ul>'
+          : '<p class="muted">No exercises yet.</p>') + '</article>';
+    });
+    return h;
+  }
+
+  function viewEditor() {
+    let h = '<h2>' + (edit.id ? 'Edit workout' : 'New workout') + '</h2>' +
+      '<div class="stack"><label for="ed-name">Workout name</label><input type="text" id="ed-name" data-edit="name" autocomplete="off" maxlength="60" value="' + esc(edit.name) + '" placeholder="Upper body"></div>' +
+      '<article class="card">';
+    if (!edit.items.length) h += '<p class="muted">Add exercises below.</p>';
+    edit.items.forEach((it, i) => {
+      h += '<div class="edrow"><span class="nm">' + esc(exName(it.ex)) + '</span>' +
+        '<div class="step"><button type="button" data-act="esub" data-arg="' + i + '" aria-label="Fewer sets">-</button><b>' + it.sets + (it.sets === 1 ? ' set' : ' sets') + '</b>' +
+        '<button type="button" data-act="eadd" data-arg="' + i + '" aria-label="More sets">+</button></div>' +
+        '<div class="tools">' + (i > 0 ? '<button type="button" class="small" data-act="eup" data-arg="' + i + '">Move up</button>' : '') +
+        '<button type="button" class="small" data-act="erm" data-arg="' + i + '">Remove</button></div></div>';
+    });
+    h += '</article>';
+    const free = state.exercises.filter(e => !edit.items.some(it => it.ex === e.id));
+    if (free.length) {
+      h += '<div class="row"><select id="ed-ex" aria-label="Existing exercise">' + free.map(e => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('') +
+        '</select><button type="button" data-act="epick">Add</button></div>';
+    }
+    h += '<div class="row"><input type="text" id="ed-new" autocomplete="off" maxlength="60" placeholder="New exercise name" aria-label="New exercise name"><button type="button" data-act="ecreate">Create and add</button></div>' +
+      '<button type="button" class="primary" data-act="esave">Save workout</button><button type="button" data-act="ecancel">Cancel</button>';
+    return h;
+  }
+
+  function viewExercises() {
+    let h = '<div class="row"><input type="text" id="new-ex" autocomplete="off" maxlength="60" placeholder="New exercise name" aria-label="New exercise name"><button type="button" data-act="xadd">Add exercise</button></div>';
+    if (!state.exercises.length) h += '<p class="muted">No exercises yet.</p>';
+    state.exercises.forEach(e => {
+      const hist = historyFor(e.id);
+      let best = null;
+      hist.forEach(x => x.sets.forEach(s => {
+        if (!best || (s.kg || 0) > (best.kg || 0) || ((s.kg || 0) === (best.kg || 0) && s.reps > best.reps)) best = s;
+      }));
+      h += '<details><summary>' + esc(e.name) + '<small>' +
+        (hist.length ? 'Last: ' + esc(fmtSets(hist[0].sets)) + ' (' + esc(ago(hist[0].date)) + ')' : 'Not logged yet') + '</small></summary><div class="inner">';
+      if (best) h += '<p class="muted">Best set: ' + esc((best.kg ? fmtKg(best.kg) + ' kg x ' : '') + best.reps + (best.kg ? '' : ' reps')) + ' over ' + hist.length + (hist.length === 1 ? ' workout' : ' workouts') + '</p>';
+      if (hist.length) {
+        h += '<ul class="lines">' + hist.slice(0, 30).map(x => '<li><span>' + esc(fmtDate(x.date)) + '</span><span>' + esc(fmtSets(x.sets)) + '</span></li>').join('') + '</ul>';
+      }
+      h += '<div class="row"><button type="button" class="small" data-act="xdel" data-arg="' + e.id + '">Delete exercise</button></div></div></details>';
+    });
+    return h;
+  }
+
+  function viewHistory() {
+    let h = '';
+    if (!state.sessions.length) h += '<p class="muted">Saved workouts show here, newest first.</p>';
+    for (let i = state.sessions.length - 1; i >= 0; i--) {
+      const s = state.sessions[i];
+      h += '<article class="card"><div class="head"><div><h3>' + esc(fmtDate(s.date)) + '</h3>' + (s.workout ? '<p class="muted">' + esc(s.workout) + '</p>' : '') + '</div>' +
+        '<button type="button" class="small" data-act="sdel" data-arg="' + i + '">Delete</button></div>' +
+        '<ul class="lines">' + s.items.map(it => '<li><span>' + esc(it.name) + '</span><span>' + esc(fmtSets(it.sets)) + '</span></li>').join('') + '</ul></article>';
+    }
+    h += '<details><summary>Backup and restore</summary><div class="inner">' +
+      '<p class="muted">Everything is saved in this browser on this device only. Copy a backup now and then; paste one here to restore or move devices.</p>' +
+      '<div class="row"><button type="button" data-act="copy">Copy backup</button><button type="button" data-act="restore">Restore from text below</button></div>' +
+      '<textarea id="backup-text" aria-label="Backup text" placeholder="Backup text appears here, or paste one to restore"></textarea></div></details>';
+    return h;
+  }
+
+  function render(msg, isErr) {
+    const views = { log: viewLog, workouts: viewWorkouts, exercises: viewExercises, history: viewHistory };
+    document.getElementById('view').innerHTML = views[state.tab]() + '<p class="msg' + (isErr ? ' err' : '') + '" id="msg" role="status">' + esc(msg || '') + '</p>';
+    document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.arg === state.tab)));
+    updateProgress();
+  }
+
+  function say(msg, isErr) {
+    const el = document.getElementById('msg');
+    el.textContent = msg;
+    el.classList.toggle('err', !!isErr);
+  }
+
+  function updateProgress() {
+    const el = document.getElementById('progress');
+    if (!el) return;
+    const d = draft();
+    let done = 0, total = 0;
+    d.items.forEach(it => it.rows.forEach(r => { total++; if (num(r.reps)) done++; }));
+    el.textContent = done + ' of ' + total + ' sets filled in';
+  }
+
+  function addExercise(raw) {
+    const name = cleanName(raw);
+    if (!name) return { err: 'Type an exercise name first.' };
+    const dup = state.exercises.find(e => e.name.toLowerCase() === name.toLowerCase());
+    if (dup) return { id: dup.id, existed: true };
+    const e = { id: uid(), name: name };
+    state.exercises.push(e);
+    return { id: e.id };
+  }
+
+  const ARMED = { wdel: 1, xdel: 1, sdel: 1, rmitem: 1 };
+
+  const ACT = {
+    tab(a) { if (TABS.indexOf(a) >= 0) { state.tab = a; edit = null; save(); render(); } },
+    pick(a) { if (workout(a)) { state.current = a; save(); render(); } },
+    addset(a) {
+      const it = draft().items[a]; if (!it || it.rows.length >= 12) return;
+      const prev = it.rows[it.rows.length - 1];
+      it.rows.push({ kg: prev ? prev.kg : '', reps: '' });
+      save(); render();
+    },
+    rmset(a) { const it = draft().items[a]; if (!it || it.rows.length <= 1) return; it.rows.pop(); save(); render(); },
+    rmitem(a) { draft().items.splice(Number(a), 1); save(); render(); },
+    additem() {
+      const sel = document.getElementById('add-ex'); if (!sel || !sel.value) return;
+      draft().items.push({ ex: sel.value, rows: blankRows(sel.value, 3) });
+      save(); render();
+    },
+    lcreate() {
+      const r = addExercise(document.getElementById('log-new').value);
+      if (r.err) { say(r.err, true); return; }
+      const d = draft();
+      if (!d.items.some(it => it.ex === r.id)) d.items.push({ ex: r.id, rows: blankRows(r.id, 3) });
+      save(); render();
+    },
+    save() {
+      const w = workout(state.current), d = draft();
+      const items = [];
+      d.items.forEach(it => {
+        const sets = cleanSets(it.rows);
+        if (sets.length) items.push({ ex: it.ex, name: exName(it.ex), sets: sets });
+      });
+      if (!items.length) { say('Enter reps for at least one set first.', true); return; }
+      state.sessions.push({ date: new Date().toISOString(), workout: w.name, items: items });
+      delete state.drafts[w.id];
+      save();
+      render(storageOk ? 'Workout saved on this device.' : 'Workout added, but this browser is not keeping saved data.', !storageOk);
+    },
+    wnew() { state.tab = 'workouts'; edit = { id: null, name: '', items: [] }; render(); },
+    wedit(a) { const w = workout(a); if (!w) return; edit = { id: w.id, name: w.name, items: w.items.map(it => ({ ex: it.ex, sets: it.sets })) }; render(); },
+    wdel(a) {
+      state.workouts = state.workouts.filter(w => w.id !== a);
+      delete state.drafts[a];
+      if (state.current === a) state.current = state.workouts[0] ? state.workouts[0].id : FREE;
+      save(); render('Workout deleted. Its history is kept.');
+    },
+    eadd(a) { const it = edit.items[a]; if (it && it.sets < 12) { it.sets++; render(); } },
+    esub(a) { const it = edit.items[a]; if (it && it.sets > 1) { it.sets--; render(); } },
+    eup(a) { const i = Number(a); if (i > 0) { const t = edit.items[i - 1]; edit.items[i - 1] = edit.items[i]; edit.items[i] = t; render(); } },
+    erm(a) { edit.items.splice(Number(a), 1); render(); },
+    epick() { const sel = document.getElementById('ed-ex'); if (sel && sel.value) { edit.items.push({ ex: sel.value, sets: 3 }); render(); } },
+    ecreate() {
+      const r = addExercise(document.getElementById('ed-new').value);
+      if (r.err) { say(r.err, true); return; }
+      if (!edit.items.some(it => it.ex === r.id)) edit.items.push({ ex: r.id, sets: 3 });
+      save(); render();
+    },
+    esave() {
+      const name = cleanName(edit.name);
+      if (!name) { say('Give the workout a name.', true); return; }
+      if (!edit.items.length) { say('Add at least one exercise.', true); return; }
+      let w = edit.id ? workout(edit.id) : null;
+      if (!w) { w = { id: uid(), name: name, items: [] }; state.workouts.push(w); }
+      w.name = name; w.items = edit.items;
+      delete state.drafts[w.id];
+      state.current = w.id;
+      edit = null;
+      save(); render('Workout saved.');
+    },
+    ecancel() { edit = null; render(); },
+    xadd() {
+      const r = addExercise(document.getElementById('new-ex').value);
+      if (r.err) { say(r.err, true); return; }
+      save(); render(r.existed ? 'That exercise already exists.' : 'Exercise added. Put it in a workout under Workouts.', !!r.existed);
+    },
+    xdel(a) {
+      state.exercises = state.exercises.filter(e => e.id !== a);
+      state.workouts.forEach(w => { w.items = w.items.filter(it => it.ex !== a); });
+      Object.keys(state.drafts).forEach(k => { state.drafts[k].items = state.drafts[k].items.filter(it => it.ex !== a); });
+      save(); render('Exercise deleted. Past workouts keep its entries.');
+    },
+    sdel(a) { state.sessions.splice(Number(a), 1); save(); render('Workout deleted.'); },
+    copy() {
+      const text = JSON.stringify({ app: 'lift-log', v: 2, exercises: state.exercises, workouts: state.workouts, sessions: state.sessions });
+      const ta = document.getElementById('backup-text');
+      ta.value = text;
+      const fallback = () => { ta.focus(); ta.select(); say('Copy did not work here. The text is selected, copy it by hand.', true); };
+      try { navigator.clipboard.writeText(text).then(() => say('Backup copied. Paste it into a note to keep it.'), fallback); }
+      catch (e) { fallback(); }
+    },
+    restore() {
+      const raw = document.getElementById('backup-text').value.trim();
+      if (!raw) { say('Paste a backup into the box first.', true); return; }
+      let data;
+      try { data = JSON.parse(raw); } catch (e) { say('That text is not a valid backup. Paste the full copied text.', true); return; }
+      let next;
+      if (data && Array.isArray(data.sessions) && data.sessions[0] && data.sessions[0].ex) {
+        next = seed(); next.sessions = convertV1(data.sessions);
+      } else {
+        next = cleanState(data);
+      }
+      if (!next.sessions.length && !(data && Array.isArray(data.workouts))) { say('Nothing found in that backup.', true); return; }
+      next.tab = 'history';
+      state = next;
+      save(); render('Restored ' + state.sessions.length + ' workouts.');
+    }
+  };
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const act = b.dataset.act;
+    if (!ACT[act]) return;
+    if (ARMED[act] && b.dataset.armed !== '1') {
+      const label = b.textContent;
+      b.dataset.armed = '1';
+      b.textContent = 'Tap again';
+      setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = label; } }, 3000);
+      return;
+    }
+    ACT[act](b.dataset.arg);
+  });
+
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset.edit === 'name' && edit) { edit.name = t.value; return; }
+    if (!t.dataset.k) return;
+    const d = draft();
+    const it = d && d.items[t.dataset.i];
+    const row = it && it.rows[t.dataset.j];
+    if (!row) return;
+    row[t.dataset.k] = t.value.trim().slice(0, 8);
+    t.closest('.set').classList.toggle('done', !!num(row.reps));
+    updateProgress();
+    save();
+    say('');
+  });
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
